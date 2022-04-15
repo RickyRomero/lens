@@ -55,7 +55,12 @@ Using an `<img>` tag, request the image you want to compress (.jpg or .png) with
 
 `http://localhost:3001/path/to/image/in/SOURCE_DIR/img.jpg?q=basic&w=640`
 
-When requesting with `<img>`, the browser will send the server an `Accept` header. This is how Lens decides on which format to send it. If you visit the image URL directly, it won't receive this header and send you the raw asset instead (without recompression or scaling).
+There are two situations where you won't receive a compressed image in response.
+
+- The compressed image isn't ready (so, your request just started that job)
+- You visited the URL directly instead of loading through `<img />`.
+
+When requesting with `<img />`, the browser will send the server a different `Accept` header with info about the next-gen formats it supports. This is how Lens decides on which format to send it. When you visit the image URL directly, it won't receive this header and send you the raw asset instead (without recompression or scaling).
 
 The `q` query parameter selects the compression level [as defined here.](#how-to-configure-the-ssim-levels)
 The `w` query parameter is optional and determines the width of the final image in pixels.
