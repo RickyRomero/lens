@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+
+<!-- Testing image quality settings -->
+<html>
+  <head>
+    <style>
+      body {
+        transition: background-color 2s linear;
+        overflow-x: hidden;
+        min-height: 100vh;
+      }
+
+      .test {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        gap: 40px;
+      }
+
+      .choices {
+        display: flex;
+        gap: 40px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="test">
+      <div class="find">
+        <img draggable="false" class="x" />
+      </div>
+      <div class="choices">
+        <img draggable="false" class="a" />
+        <img draggable="false" class="b" />
+        <img draggable="false" class="c" />
+      </div>
+    </div>
+
+    <script>
+      let toLoad = 4
+      let lastTestStarted = Date.now()
+      let timeHorizon = 7000
+      let targetSsim = 0.96
+      const body = document.querySelector('body')
+      const test = document.querySelector('.test')
+      const a = document.querySelector('img.a')
+      const b = document.querySelector('img.b')
+      const c = document.querySelector('img.c')
+      const x = document.querySelector('img.x')
+      let isCorrect = false
+
+      const imageLoaded = () => {
+        toLoad -= 1
+        if (toLoad === 0) {
+          test.style.display = 'flex'
+          lastTestStarted = Date.now() + 3500 // Allow time to take the images in
+        }
+      }
+
+      const loadNextTest = () => {
+        const image = Math.max(1, Math.round(Math.random() * 126))
+        const elements = [a, b, c]
+        const options = ['avif', 'webp', 'png']
+        let formats = [...options]
+        toLoad = elements.length + 1
+        test.style.display = 'none'
+
+        for (let i = 0; i < options.length; i++) {
+          const formatIdx = Math.round(Math.random() * (formats.length - 1))
+          const format = `${formats[formatIdx]}`
+          formats = formats.filter((_, idx) => idx !== formatIdx)
+          elements[i].src = format === 'png'
+            ? `http://localhost:3001/abx/${image}/png`
+            : `http://localhost:3001/abx/${image}/${targetSsim}/${format}`
+        }
+
+        const xIdx = Math.round(Math.random() * (elements.length - 1))
+        x.src = elements[xIdx].src
+      }
+
+      const updateBg = () => {
+        body.style.backgroundColor = `hsl(${Math.random() * 360}, 10%, 33%)`
+        setTimeout(updateBg, 2000)
+      }
+
+      const makeSelection = event => {
+        const sign = event.target.src === x.src ? 1 : -1
+        const timeDelta = Math.min(timeHorizon, (Date.now() - lastTestStarted))
+        const scoreAdjustment = (1 - (timeDelta / timeHorizon)) * sign * 0.002
+        targetSsim += scoreAdjustment
+        targetSsim = Math.min(0.9999, Math.max(0.95, targetSsim))
+
+        console.log(timeDelta, scoreAdjustment, targetSsim)
+        loadNextTest()
+      }
+
+      const abstain = () => {
+        console.log(0, 0, targetSsim)
+        loadNextTest()
+      }
+
+      a.addEventListener('load', imageLoaded)
+      b.addEventListener('load', imageLoaded)
+      c.addEventListener('load', imageLoaded)
+      x.addEventListener('load', imageLoaded)
+
+      a.addEventListener('click', makeSelection)
+      b.addEventListener('click', makeSelection)
+      c.addEventListener('click', makeSelection)
+      x.addEventListener('click', abstain)
+
+      updateBg()
+      loadNextTest()
+    </script>
+  </body>
+</html>
+
