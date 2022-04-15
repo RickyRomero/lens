@@ -12,6 +12,7 @@ const { sourcePath, isFilePath, sterilizePath } = require('./lib/path-tools')
 const app = express()
 app.disable('x-powered-by')
 
+const cacheControl = 'public, max-age=86400, immutable'
 const imagePaths = ['*.jpg', '*.png']
 const supportedPaths = [...imagePaths, '*.woff2', '*.mp4', '*.svg']
 
@@ -58,6 +59,7 @@ app.get(imagePaths, async (req, res, next) => {
 
       const buf = await retrieve(params)
       res.status(200)
+        .set('cache-control', cacheControl)
         .set('content-type', mime.getType(res.locals.format))
         .send(buf)
         .end()
@@ -76,6 +78,7 @@ app.get(supportedPaths, async (req, res) => {
   try {
     const buf = await fs.readFile(sourcePath(userPath))
     res.status(200)
+      .set('cache-control', cacheControl)
       .set('content-type', mime.getType(type))
       .send(buf)
       .end()
