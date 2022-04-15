@@ -5,4 +5,4 @@ node_modules
 # This is just where I'm storing these things during development
 source-files
 cache-files
-regen-log.txt
+regen-log.json

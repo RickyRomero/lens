@@ -31,7 +31,7 @@ Clone this repo, then add a `.env` file with the following info:
 PORT=3001
 SOURCE_DIR=/path/to/source/assets/dir
 CACHE_DIR=/path/to/image/cache/dir
-REGEN_LOG=/path/to/regen/log.txt
+REGEN_LOG=/path/to/regen/log.json
 ```
 
 After that:

@@ -16,6 +16,7 @@
   },
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "regen": "node lib/regen.js"
   }
 }
