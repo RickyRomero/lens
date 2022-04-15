@@ -5,7 +5,7 @@ const fs = require('fs').promises
 
 const express = require('express')
 const mime = require('mime')
-const retrieve = require('./lib/cache')
+const { retrieve } = require('./lib/cache')
 const { compressToSsim } = require('./lib/compress')
 const { sourcePath, isFilePath, sterilizePath } = require('./lib/path-tools')
 
@@ -49,20 +49,25 @@ app.get(imagePaths, async (req, res, next) => {
     if (accepts.indexOf('image/webp') > -1) {
       formats.push('webp')
     }
-    res.locals.format = formats.shift()
+    const format = formats.shift()
 
-    if (res.locals.format) {
+    if (format) {
       params.source = res.locals.path
-      params.format = res.locals.format
+      params.format = format
       params.quality = req.query.q
       params.width = Number(req.query.w || 0)
 
       const buf = await retrieve(params)
-      res.status(200)
-        .set('cache-control', cacheControl)
-        .set('content-type', mime.getType(res.locals.format))
-        .send(buf)
-        .end()
+      if (buf) {
+        res.status(200)
+          .set('cache-control', cacheControl)
+          .set('content-type', mime.getType(format))
+          .send(buf)
+          .end()
+      } else {
+        // Cache missed and it's compressing now
+        next()
+      }
     } else {
       next()
     }
@@ -74,7 +79,7 @@ app.get(imagePaths, async (req, res, next) => {
 // Serve static files
 app.get(supportedPaths, async (req, res) => {
   const userPath = res.locals.path
-  const type = res.locals.format || PATH.extname(userPath)
+  const type = PATH.extname(userPath)
   try {
     const buf = await fs.readFile(sourcePath(userPath))
     res.status(200)
