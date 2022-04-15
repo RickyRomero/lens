@@ -14,6 +14,7 @@ I built Lens as a way to cope with next.js loading images slowly all the time (s
 
 **Why should you use this instead of `next/image`?:**
 
+- If a compressed image isn't ready, it sends the uncompressed one and doesn't block
 - It persists compressed images between builds
 - It re-generates missing compressed images by keeping a log of image requests
 - During compression, it uses [SSIM comparison](https://en.wikipedia.org/wiki/Structural_similarity) to smartly select image quality levels
