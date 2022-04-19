@@ -3,6 +3,7 @@ require('dotenv').config()
 const PATH = require('path')
 const fs = require('fs').promises
 
+const sharp = require('sharp')
 const express = require('express')
 const mime = require('mime')
 const { retrieve } = require('./lib/cache')
@@ -117,5 +118,93 @@ app.get(supportedPaths, async (req, res) => {
 //     .send(buf)
 //     .end()
 // })
+//
+
+const formatOptions = (format, quality) => {
+  const baseOptions = {
+    avif: {
+      chromaSubsampling: '4:4:4',
+      effort: 9
+    },
+    webp: {
+      alphaQuality: quality,
+      smartSubsample: true,
+      effort: 6
+    }
+  }
+
+  return { ...baseOptions[format], quality }
+}
+
+const png = async ({ path, width }) => {
+  if (width) {
+    return (
+      await sharp(path)
+        .ensureAlpha()
+        .resize({ width, withoutEnlargement: true })
+        .toFormat('png')
+        .toBuffer()
+    )
+  }
+
+  return (
+    await sharp(path)
+      .ensureAlpha()
+      .toFormat('png')
+      .toBuffer()
+  )
+}
+
+const compress = async ({ path, format, width, quality }) => {
+  const options = { quality, ...formatOptions[format] }
+  if (width) {
+    const compressed = await sharp(path)
+      .ensureAlpha()
+      .resize({ width, withoutEnlargement: true })
+      .toFormat(format, options)
+      .toBuffer()
+    return (
+      await sharp(compressed)
+        .ensureAlpha()
+        .toFormat('png')
+        .toBuffer()
+    )
+  }
+
+  const compressed = await sharp(path)
+    .ensureAlpha()
+    .toFormat(format, options)
+    .toBuffer()
+  return (
+    await sharp(compressed)
+      .ensureAlpha()
+      .toFormat('png')
+      .toBuffer()
+  )
+}
+
+app.get('/ab/:id/:width/png', async (req, res) => {
+  const padded = String(Number(req.params.id)).padStart(3, '0')
+  const path = `Image_${padded}.png`
+  const width = Number(req.params.width)
+  const buf = await png({ path, width })
+  res.status(200)
+    .set('content-type', mime.getType('png'))
+    .send(buf)
+    .end()
+})
+
+app.get('/ab/:id/:quality/:width/:format', async (req, res) => {
+  const padded = String(Number(req.params.id)).padStart(3, '0')
+  const path = `Image_${padded}.png`
+  const quality = Number(req.params.quality)
+  const width = Number(req.params.width)
+  const format = req.params.format
+  const buf = await compress({ path, format, width, quality })
+  res.status(200)
+    .set('content-type', mime.getType('png'))
+    .send(buf)
+    .end()
+})
 
 app.listen(process.env.PORT)

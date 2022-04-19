@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+
+<!-- Testing image quality settings -->
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        overflow-x: hidden;
+        min-height: 100vh;
+        background-color: #444;
+      }
+
+      .choices {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .choices * {
+        position: absolute;
+      }
+
+      .choices img {
+        height: auto;
+        inset: 50% auto auto 50%;
+        transform: translateX(-50%) translateY(-50%);
+      }
+
+      .choices .a {
+        z-index: 2;
+      }
+
+      .choices button {
+        z-index: 4;
+        appearance: none;
+        background: transparent;
+        border: none;
+      }
+
+      .choices button:hover {
+        /* background-color: rgba(0, 0, 0, 0.05); */
+      }
+
+      .choices button.up { inset: 0 0 66.667% 0; }
+      .choices button.dn { inset: 66.667% 0 0 0; }
+      .choices button.ps { inset: 33.333% 50% 33.333% 0; }
+      .choices button.nt { inset: 33.333% 0 33.333% 50%; }
+
+      .choices .focus { top: 0; left: 0; width: 20%; height: 20%; z-index: 5; }
+      .choices .focus:hover { background-color: rgba(0, 0, 0, 0.05); }
+    </style>
+  </head>
+
+  <body>
+    <div class="choices">
+      <img draggable="false" class="a" />
+      <img draggable="false" class="b" />
+      <button class="up"></button>
+      <button class="dn"></button>
+      <button class="nt"></button>
+      <button class="ps"></button>
+      <div class="focus"></div>
+    </div>
+
+    <script>
+      const body = document.querySelector('body')
+      const a = document.querySelector('img.a')
+      const b = document.querySelector('img.b')
+      const up = document.querySelector('button.up')
+      const dn = document.querySelector('button.dn')
+      const nt = document.querySelector('button.nt')
+      const ps = document.querySelector('button.ps')
+
+      let dpr = 3
+      let width = 1920
+      let displayWidth = width / dpr
+      let format = 'avif'
+      let startQuality = 5
+      let quality = startQuality
+      let image = 1
+      let maxImages = 220
+      let period = 0
+      let imageStep = 5
+
+      const increaseQuality = ev => {
+        quality += ev.shiftKey ? 10 : 1
+        quality = Math.min(100, Math.max(1, quality))
+        loadCompressed()
+      }
+
+      const reduceQuality = ev => {
+        quality -= ev.shiftKey ? 10 : 1
+        quality = Math.min(100, Math.max(1, quality))
+        loadCompressed()
+      }
+
+      const loadCompressed = () => {
+        b.src = `http://10.0.5.2:3001/ab/${image}/${quality}/${width}/${format}`
+        b.width = displayWidth
+      }
+
+      const loadImg = () => {
+        a.src = `http://10.0.5.2:3001/ab/${image}/${width}/png`
+        a.width = displayWidth
+        loadCompressed()
+      }
+
+      const prevImg = () => {
+        quality = startQuality
+        image -= imageStep
+        image = Math.min(maxImages, Math.max(0, image))
+        loadImg()
+      }
+
+      const nextImg = () => {
+        console.log(image, quality)
+        quality = startQuality
+        image += imageStep
+        image = Math.min(maxImages, Math.max(0, image))
+        loadImg()
+      }
+
+      const flash = () => {
+        b.style.zIndex = ((period % 2) * 2) + 1
+        period += 1
+        setTimeout(flash, 333)
+      }
+
+      let gamepadIdx = null
+      let previousStates = []
+      let currentStates = []
+      const pollGamepads = () => {
+        if (gamepadIdx === null) { return }
+
+        const gamepads = navigator.getGamepads()
+        const gp = gamepads[gamepadIdx]
+
+        previousStates = [...currentStates]
+        currentStates = gp.buttons.map(butt => butt.pressed)
+
+        const [aPrv, bPrv, xPrv, yPrv, lPrv] = previousStates
+        const [aCur, bCur, xCur, yCur, lCur] = currentStates
+
+        if (yCur && !yPrv) { increaseQuality({shiftKey: lCur}) }
+        if (aCur && !aPrv) { reduceQuality({shiftKey: lCur}) }
+        if (xCur && !xPrv) { prevImg() }
+        if (bCur && !bPrv) { nextImg() }
+
+        window.requestAnimationFrame(pollGamepads)
+      }
+
+      window.addEventListener('gamepadconnected', event => {
+        console.log('Gamepad ready!')
+        gamepadIdx = event.gamepad.index
+        window.requestAnimationFrame(pollGamepads)
+      })
+
+      up.addEventListener('click', increaseQuality)
+      dn.addEventListener('click', reduceQuality)
+      ps.addEventListener('click', prevImg)
+      nt.addEventListener('click', nextImg)
+
+      loadImg()
+      flash()
+    </script>
+  </body>
+</html>
+
