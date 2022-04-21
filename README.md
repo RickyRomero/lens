@@ -22,7 +22,7 @@ I built Lens as a way to cope with next.js loading images slowly all the time (s
 
 ## How to configure the SSIM levels
 
-They're in `lib/cache.js`. I decided on the levels in that file through ABX testing of about 130 images, so you might not want to mess with this unless you do the same. (Using `abx.html` and some elbow grease...)
+They're in `lib/cache.js`. I decided on the levels in that file through testing about 220 images, so you might not want to mess with this unless you do the same. (Using `abx.html` and some elbow grease...)
 
 ## How to run
 
@@ -54,7 +54,11 @@ yarn regen && yarn start
 
 Using an `<img>` tag, request the image you want to compress (.jpg or .png) with this `src`:
 
-`http://localhost:3001/path/to/image/in/SOURCE_DIR/img.jpg?q=basic&w=640`
+`http://localhost:3001/path/to/image/in/SOURCE_DIR/img.jpg?d=1x&w=640`
+
+Or this one:
+
+`http://localhost:3001/path/to/image/in/SOURCE_DIR/img.jpg?q=ultra&w=640`
 
 There are two situations where you won't receive a compressed image in response.
 
@@ -63,5 +67,8 @@ There are two situations where you won't receive a compressed image in response.
 
 When requesting with `<img />`, the browser will send the server a different `Accept` header with info about the next-gen formats it supports. This is how Lens decides on which format to send it. When you visit the image URL directly, it won't receive this header and send you the raw asset instead (without recompression or scaling).
 
-The `q` query parameter selects the compression level [as defined here.](#how-to-configure-the-ssim-levels)
-The `w` query parameter is optional and determines the width of the final image in pixels.
+The `d` query parameter (for "density") is one of `1x`, `2x`, or `3x`. It refers to the target pixel density, optimizing the image for each one. This defaults to `1x` if not supplied. It doesn't affect the scale of the final image; just the quality optimization.
+
+The `w` query parameter (for "width") and determines the width of the final image in pixels. This defaults to the width of the source image if not supplied. It won't scale up.
+
+If you don't like the result of the `d` parameter, you can replace it with `q=ultra`. Lens will then return a lightly compressed (but much larger) image to compensate.

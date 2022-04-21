@@ -54,7 +54,8 @@ app.get(imagePaths, async (req, res, next) => {
     if (format) {
       params.source = res.locals.path
       params.format = format
-      params.quality = req.query.q
+      params.quality = req.query.q || 'normal'
+      params.density = req.query.d || '1x'
       params.width = Number(req.query.w || 0)
 
       const buf = await retrieve(params)
