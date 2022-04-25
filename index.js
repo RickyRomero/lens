@@ -41,35 +41,30 @@ app.get(supportedPaths, async (req, res, next) => {
 app.get(imagePaths, async (req, res, next) => {
   const params = {}
   try {
-    const formats = []
-    const accepts = req.headers.accept || ''
-    if (accepts.indexOf('image/avif') > -1) {
-      formats.push('avif')
+    const accepts = ['jpeg', 'png']
+    const acceptHeader = req.headers.accept || ''
+    if (acceptHeader.indexOf('image/avif') > -1) {
+      accepts.push('avif')
     }
-    if (accepts.indexOf('image/webp') > -1) {
-      formats.push('webp')
+    if (acceptHeader.indexOf('image/webp') > -1) {
+      accepts.push('webp')
     }
-    const format = formats.shift()
 
-    if (format) {
-      params.source = res.locals.path
-      params.format = format
-      params.quality = req.query.q || 'normal'
-      params.density = req.query.d || '1x'
-      params.width = Number(req.query.w || 0)
+    params.source = res.locals.path
+    params.accepts = accepts
+    params.quality = req.query.q || 'normal'
+    params.density = req.query.d || '1x'
+    params.width = Number(req.query.w || 8192)
 
-      const buf = await retrieve(params)
-      if (buf) {
-        res.status(200)
-          .set('cache-control', cacheControl)
-          .set('content-type', mime.getType(format))
-          .send(buf)
-          .end()
-      } else {
-        // Cache missed and it's compressing now
-        next()
-      }
+    const buf = await retrieve(params)
+    if (buf) {
+      res.status(200)
+        .set('cache-control', cacheControl)
+        .set('content-type', mime.getType(format))
+        .send(buf)
+        .end()
     } else {
+      // Cache missed and it's compressing now
       next()
     }
   } catch (e) {
