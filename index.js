@@ -43,11 +43,11 @@ app.get(imagePaths, async (req, res, next) => {
   try {
     const accepts = ['jpeg', 'png']
     const acceptHeader = req.headers.accept || ''
-    if (acceptHeader.indexOf('image/avif') > -1) {
-      accepts.push('avif')
-    }
     if (acceptHeader.indexOf('image/webp') > -1) {
       accepts.push('webp')
+    }
+    if (acceptHeader.indexOf('image/avif') > -1) {
+      accepts.push('avif')
     }
 
     params.source = res.locals.path
@@ -56,12 +56,12 @@ app.get(imagePaths, async (req, res, next) => {
     params.density = req.query.d || '1x'
     params.width = Number(req.query.w || 8192)
 
-    const buf = await retrieve(params)
-    if (buf) {
+    const cached = await retrieve(params)
+    if (cached) {
       res.status(200)
         .set('cache-control', cacheControl)
-        .set('content-type', mime.getType(format))
-        .send(buf)
+        .set('content-type', mime.getType(cached.format))
+        .send(cached.buffer)
         .end()
     } else {
       // Cache missed and it's compressing now
