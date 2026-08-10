@@ -1,3 +1,5 @@
+[AI usage notice](#ai-usage-notice)
+
 # Lens
 
 Lens is a simple express.js server which hosts visual assets. It will also compress images for you using next-gen formats.
@@ -72,3 +74,15 @@ The `d` query parameter (for "density") is one of `1x`, `2x`, or `3x`. It refers
 The `w` query parameter (for "width") and determines the width of the final image in pixels. This defaults to the width of the source image if not supplied. It won't scale up.
 
 If you don't like the result of the `d` parameter, you can replace it with `q=ultra`. Lens will then return a lightly compressed (but much larger) image to compensate.
+
+## AI usage notice
+
+This project is developed with AI assistance, including agentic coding tools. The code here may be written or drafted by a model under my direction, then read, tested, and taken responsibility for by me. Commits before August 9, 2026 predate this practice.
+
+If you'd prefer to avoid software developed this way, that's a legitimate position and I completely respect your decision. This notice exists so you can act on it without having to guess.
+
+## AI policy
+
+Use whatever tools you like, including agents. **You are the author either way:** read every line, be prepared to explain why it's correct, write your own PR descriptions, and keep your diff small and targeted. Open an issue before doing anything big so we can plan your approach together beforehand.
+
+[Please read my full policy here.](./AI_POLICY.md)
