@@ -1,4 +1,4 @@
-[AI usage notice](#ai-usage-notice)
+[**AI usage notice →**](#ai-usage-notice)
 
 # Lens
 
@@ -81,7 +81,7 @@ This project is developed with AI assistance, including agentic coding tools. Th
 
 If you'd prefer to avoid software developed this way, that's a legitimate position and I completely respect your decision. This notice exists so you can act on it without having to guess.
 
-## AI policy
+## Contributing with AI
 
 Use whatever tools you like, including agents. **You are the author either way:** read every line, be prepared to explain why it's correct, write your own PR descriptions, and keep your diff small and targeted. Open an issue before doing anything big so we can plan your approach together beforehand.
 
