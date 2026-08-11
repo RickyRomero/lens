@@ -2,6 +2,10 @@
 .env
 node_modules
 
+# Lambda build artifacts
+lambda/.build
+lambda/function.zip
+
 # This is just where I'm storing these things during development
 source-files
 cache-files

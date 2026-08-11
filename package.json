@@ -4,12 +4,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "packageManager": "pnpm@10.28.2",
   "dependencies": {
+    "aws4": "^1.13.2",
     "dotenv": "^16",
     "express": "^4",
-    "mime": "^3",
-    "sharp": "^0",
-    "ssim.js": "^3"
+    "mime": "^3"
   },
   "devDependencies": {
     "nodemon": "^2"
@@ -17,6 +17,7 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "regen": "node lib/regen.js"
+    "regen": "node lib/regen.js",
+    "deploy:lambda": "infra/deploy.sh"
   }
 }

@@ -1,0 +1,11 @@
+{
+  "name": "lens-compressor",
+  "private": true,
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.35.3",
+    "ssim.js": "^3"
+  }
+}

@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lens image compressor - Lambda function, IAM-authenticated URL, and invoking user.
+
+Parameters:
+  FunctionName:
+    Type: String
+    Default: lens-compressor
+  AllowedOrigin:
+    Type: String
+    Description: >-
+      Origin the function is permitted to fetch source images from, e.g.
+      https://lens.example.com. Anything else is refused, so an authorized
+      caller still can't use this as a general-purpose fetcher.
+  MemorySize:
+    Type: Number
+    Default: 6144
+    MinValue: 512
+    MaxValue: 10240
+    Description: >-
+      Lambda allocates roughly one vCPU per 1769 MB, and sharp is multithreaded,
+      so this buys wall-clock as well as headroom. Sizing is driven by peak RSS,
+      measured against the largest source (7680x4320) at the widths in the regen
+      log: w=1280 ~485 MB, w=2560 ~1.2-1.5 GB, w=6016 ~3.8 GB. The log contains
+      128 entries above w=2560, so anything under ~4096 will OOM during a full
+      regen. Disabling the libvips cache does not help - the pixel buffers
+      dominate, not the cache.
+      Note that accounts still under the new-account restriction are capped at
+      3008 MB, which is not exposed as a Service Quotas entry and can only be
+      raised through AWS Support. At 3008 everything up to w=3840 (~1.9 GB) is
+      comfortable and w=5120 (~2.9 GB) is marginal; w=6016 will OOM.
+  Timeout:
+    Type: Number
+    Default: 900
+    MaxValue: 900
+  EphemeralStorage:
+    Type: Number
+    Default: 2048
+    MinValue: 512
+    MaxValue: 10240
+    Description: /tmp, used to cache fetched sources across warm invocations.
+  ReservedConcurrency:
+    Type: Number
+    Default: 20
+    MinValue: 0
+    Description: >-
+      Spend circuit breaker. Must be at least MAX_CONCURRENT_JOBS x 4 on the
+      origin, since each job fans out to one invocation per accepted format.
+      Below that, invocations are throttled and jobs fail rather than caching a
+      partial result. Default covers the default MAX_CONCURRENT_JOBS=4.
+      Set to 0 to omit the reservation entirely: AWS requires 100 unreserved
+      concurrent executions to remain, so accounts still under the new-account
+      limit of 10 cannot reserve anything at all.
+  MaxOutputMegapixels:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    Description: >-
+      Refuse any job whose output would exceed this many megapixels, so an
+      oversized image fails in about a second with a clear message instead of
+      being OOM-killed after a long encode. 0 disables the check. Guidance from
+      measured peak RSS: ~16 at MemorySize 3008, ~45 at 6144, unset at 10240.
+
+  SharpConcurrency:
+    Type: Number
+    Default: 2
+    Description: libvips worker threads. Should track the vCPUs implied by MemorySize.
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+
+Conditions:
+  # AWS rejects any reservation that would leave fewer than 100 unreserved
+  # concurrent executions, so this has to be omittable rather than just small.
+  UseReservedConcurrency: !Not [!Equals [!Ref ReservedConcurrency, 0]]
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${FunctionName}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${FunctionName}-execution'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WriteLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt LogGroup.Arn
+
+  CompressorFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      FunctionName: !Ref FunctionName
+      Description: Compresses one image format per invocation for Lens.
+      # Node.js LTS. Lambda only publishes a managed runtime once a release
+      # reaches Active LTS, so the newest identifier here is always the newest
+      # LTS. nodejs24.x is supported until Apr 30, 2028; Node 26 is expected
+      # around Nov 2026.
+      Runtime: nodejs24.x
+      Architectures: [arm64]
+      Handler: index.handler
+      Role: !GetAtt ExecutionRole.Arn
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+      ReservedConcurrentExecutions: !If
+        - UseReservedConcurrency
+        - !Ref ReservedConcurrency
+        - !Ref 'AWS::NoValue'
+      EphemeralStorage:
+        Size: !Ref EphemeralStorage
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          SHARP_CONCURRENCY: !Ref SharpConcurrency
+          MAX_OUTPUT_MEGAPIXELS: !Ref MaxOutputMegapixels
+      Code:
+        # Placeholder only. deploy.sh pushes the real bundle with
+        # update-function-code right after this stack converges; because this
+        # string never changes, later stack updates leave the code alone.
+        ZipFile: |
+          exports.handler = async () => ({
+            statusCode: 503,
+            body: 'Lens compressor has not been deployed yet.'
+          })
+
+  CompressorUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt CompressorFunction.Arn
+      AuthType: AWS_IAM
+      InvokeMode: BUFFERED
+
+  # Unsigned requests are rejected by AWS before the function runs, so junk
+  # traffic never becomes a bill.
+  UrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CompressorFunction.Arn
+      Action: lambda:InvokeFunctionUrl
+      Principal: !Ref AWS::AccountId
+      FunctionUrlAuthType: AWS_IAM
+
+  InvokerUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub '${FunctionName}-invoker'
+
+  InvokerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: InvokeLensCompressor
+      Users: [!Ref InvokerUser]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunctionUrl
+            Resource: !GetAtt CompressorFunction.Arn
+            Condition:
+              StringEquals:
+                lambda:FunctionUrlAuthType: AWS_IAM
+
+Outputs:
+  FunctionName:
+    Value: !Ref CompressorFunction
+  FunctionUrl:
+    Description: Set this as LENS_LAMBDA_URL in the origin's .env
+    Value: !GetAtt CompressorUrl.FunctionUrl
+  InvokerUserName:
+    Description: Run `aws iam create-access-key --user-name <this>` once to get credentials.
+    Value: !Ref InvokerUser
