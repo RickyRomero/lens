@@ -175,6 +175,17 @@ Resources:
             Condition:
               StringEquals:
                 lambda:FunctionUrlAuthType: AWS_IAM
+          # Function URLs created since October 2025 require lambda:InvokeFunction
+          # as well as lambda:InvokeFunctionUrl. Without it every call returns a
+          # bare 403 "Forbidden" that names neither the missing action nor the
+          # principal. InvokedViaFunctionUrl keeps this key useless for direct
+          # Invoke calls, so it still only buys access through the URL.
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt CompressorFunction.Arn
+            Condition:
+              Bool:
+                lambda:InvokedViaFunctionUrl: true
 
 Outputs:
   FunctionName:

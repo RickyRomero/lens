@@ -163,7 +163,15 @@ exports.handler = async (event, context) => {
       isBase64Encoded: true
     }
   } catch (e) {
-    console.error('Compression failed:', format, sourceUrl, e)
+    // Strip the query string before logging: it carries a live signature that
+    // is good for this path for a few minutes, and CloudWatch keeps it for days.
+    let target = '(unparseable sourceUrl)'
+    try {
+      const u = new URL(sourceUrl)
+      target = u.origin + u.pathname
+    } catch (parseError) { /* leave the placeholder */ }
+
+    console.error('Compression failed:', format, target, e)
     return { statusCode: e.statusCode || 500, body: e.message }
   }
 }
