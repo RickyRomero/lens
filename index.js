@@ -131,4 +131,16 @@ app.get(supportedPaths, async (req, res) => {
   }
 })
 
-app.listen(process.env.PORT)
+// Unset PORT used to bind a random one silently, which looks identical to a
+// misconfigured proxy: nginx gets ECONNREFUSED and nothing anywhere says why.
+// Say the port out loud instead, so it can be compared against proxy_pass.
+const port = Number(process.env.PORT)
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error(`PORT must be a valid port number, got: ${process.env.PORT ?? '(unset)'}`)
+  process.exit(1)
+}
+
+app.listen(port, () => {
+  console.log(new Date().toISOString(), `[lens] listening on port ${port}`)
+  console.log(new Date().toISOString(), `[lens] serving from ${sourcePath('')}`)
+})
