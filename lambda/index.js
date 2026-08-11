@@ -1,6 +1,9 @@
 const PATH = require('path')
 const fs = require('fs').promises
+const sharp = require('sharp')
 const { compressOne } = require('./compress')
+
+const sourceFetchAttempts = Number(process.env.SOURCE_FETCH_ATTEMPTS) || 3
 
 // Normalised, so a trailing slash in the deploy parameter doesn't turn every
 // request into a confusing 403.
@@ -50,19 +53,60 @@ const fetchSource = async (sourceUrl, srcHash) => {
   const hit = await fs.readFile(cached).catch(() => null)
   if (hit) { return hit }
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(fetchTimeout) })
-  if (!response.ok) {
-    throw fail(502, `Origin returned ${response.status} for the source image.`)
-  }
+  // A dropped connection or a blip from the proxy in front of the origin is
+  // transient and worth another go in-process -- far cheaper than failing the
+  // job and having the whole invocation repeated. Deterministic answers (a bad
+  // signature, a missing file) are not retried: they'd fail identically.
+  let buffer
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(fetchTimeout) })
 
-  const declared = Number(response.headers.get('content-length'))
-  if (Number.isFinite(declared) && declared > maxSourceBytes) {
-    throw fail(413, 'Source image is too large.')
-  }
+      if (response.status >= 400 && response.status < 500) {
+        throw fail(502, `Origin returned ${response.status} for the source image.`)
+      }
+      if (!response.ok) {
+        throw Object.assign(
+          new Error(`Origin returned ${response.status} for the source image.`),
+          { transient: true }
+        )
+      }
 
-  const buffer = Buffer.from(await response.arrayBuffer())
-  if (buffer.length > maxSourceBytes) {
-    throw fail(413, 'Source image is too large.')
+      const declared = Number(response.headers.get('content-length'))
+      if (Number.isFinite(declared) && declared > maxSourceBytes) {
+        throw fail(413, 'Source image is too large.')
+      }
+
+      buffer = Buffer.from(await response.arrayBuffer())
+      if (buffer.length > maxSourceBytes) {
+        throw fail(413, 'Source image is too large.')
+      }
+
+      // A truncated body still decodes as "a file", so check it really is an
+      // image before trusting it. Without this a short read could be written to
+      // the /tmp cache and then reused by every later invocation on this
+      // container -- one bad download poisoning everything that follows.
+      if (declared && buffer.length !== declared) {
+        throw Object.assign(
+          new Error(`Truncated download: got ${buffer.length} of ${declared} bytes.`),
+          { transient: true }
+        )
+      }
+      await sharp(buffer).metadata()
+
+      break
+    } catch (e) {
+      const retryable = e.transient || e.name === 'TimeoutError' || e.name === 'AbortError' ||
+        e.cause !== undefined || /Input buffer|unsupported image format/i.test(e.message || '')
+
+      if (!retryable || attempt >= sourceFetchAttempts) {
+        if (e.statusCode) { throw e }
+        throw fail(502, `Could not fetch a usable source after ${attempt} attempt(s): ${e.message}`)
+      }
+
+      console.warn(`Source fetch attempt ${attempt} failed (${e.message}); retrying.`)
+      await new Promise(resolve => setTimeout(resolve, 250 * attempt))
+    }
   }
 
   try {
