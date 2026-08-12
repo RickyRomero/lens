@@ -40,16 +40,19 @@ Parameters:
     Description: /tmp, used to cache fetched sources across warm invocations.
   ReservedConcurrency:
     Type: Number
-    Default: 20
+    Default: 40
     MinValue: 0
     Description: >-
       Spend circuit breaker. Must be at least MAX_CONCURRENT_JOBS x 4 on the
       origin, since each job fans out to one invocation per accepted format.
       Below that, invocations are throttled and jobs fail rather than caching a
-      partial result. Default covers the default MAX_CONCURRENT_JOBS=4.
-      Set to 0 to omit the reservation entirely: AWS requires 100 unreserved
-      concurrent executions to remain, so accounts still under the new-account
-      limit of 10 cannot reserve anything at all.
+      partial result. Default leaves headroom to raise MAX_CONCURRENT_JOBS to 10
+      without touching the stack.
+      Note that this reservation is not what protects a restricted account: AWS
+      requires 100 unreserved concurrent executions to remain, so an account
+      still under the new-account limit of 10 cannot reserve anything at all and
+      will throttle at 10 regardless of what is set here. Set to 0 to omit the
+      reservation entirely on such accounts.
   MaxOutputMegapixels:
     Type: Number
     Default: 0

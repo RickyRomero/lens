@@ -125,6 +125,11 @@ through `LENS_STACK_PARAMS`:
 LENS_STACK_PARAMS="MemorySize=7076 ReservedConcurrency=20" pnpm deploy:lambda
 ```
 
+`LENS_STACK_PARAMS` is the whole set, not a patch on the last deploy: anything
+left out is reset to the default declared in `infra/lens-compressor.yaml`, so
+removing an override reverts it. Deploying with none of them set restores every
+template default. The resolved values are printed before the stack converges.
+
 The function URL is IAM-authenticated, so unsigned requests are rejected by AWS
 before the function runs and never cost you anything. Lambda will only fetch
 source images from `ORIGIN_BASE_URL`, so it can't be pointed at anything else.
