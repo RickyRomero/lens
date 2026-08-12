@@ -179,10 +179,22 @@ exports.handler = async (event, context) => {
       }
     }
 
+    // A format too big to return was never a viable candidate: the origin keeps
+    // whichever format comes back smallest, and anything under the limit beats
+    // anything over it by definition. So this is a skip, not a failure -- one
+    // bloated png must not sink a job whose jpeg came back at 1.4 MB. If every
+    // format lands here the origin still has nothing to cache and fails the job.
     if (result.buffer.length > maxResponseBytes) {
+      const megabytes = (result.buffer.length / 1048576).toFixed(1)
+      console.warn(
+        `Skipping ${format}: ${result.buffer.length} bytes, over the response limit.`
+      )
       return {
-        statusCode: 413,
-        body: `Compressed ${format} is ${result.buffer.length} bytes, over the response limit.`
+        statusCode: 200,
+        headers: {
+          'x-lens-format': format,
+          'x-lens-skipped': `oversize ${megabytes}MB`
+        }
       }
     }
 
